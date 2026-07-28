@@ -1,13 +1,4 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
-dotenv.config();
-
-const app = express();
-app.use(cors());
-app.use(express.json());
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
@@ -16,9 +7,9 @@ const model = genAI.getGenerativeModel({
 });
 
 // ---- PROMPT DESIGN -------------------------------------------------------
-// These two prompts are the core "prompt engineering" artifact of this project.
-// They are copied verbatim into PROMPTS.md for the submission text box as well,
-// so this file and PROMPTS.md must be kept in sync if edited.
+// Identical to backend/server.js and PROMPTS.md. This is the version that
+// actually runs in production (Vercel serverless function). backend/server.js
+// is kept for local Express development / as a reference implementation.
 
 const SYSTEM_PROMPT = `You are a training content designer for 99 Group, a property-technology company that runs 99.co, Rumah123, and iProperty. You write short internal knowledge quizzes for employees (agents, marketing, ops, tech) about the property industry.
 
@@ -57,8 +48,13 @@ Return only the JSON object described in the system prompt.`;
 }
 // ---------------------------------------------------------------------------
 
-app.post("/api/generate-quiz", async (req, res) => {
-  const { topic, numQuestions = 5, difficulty = "mixed" } = req.body;
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const { topic, numQuestions = 5, difficulty = "mixed" } = req.body || {};
 
   if (!topic || !topic.trim()) {
     return res.status(400).json({ error: "Topic is required" });
@@ -81,17 +77,12 @@ app.post("/api/generate-quiz", async (req, res) => {
       throw new Error("Model returned no questions");
     }
 
-    res.json(quiz);
+    return res.status(200).json(quiz);
   } catch (err) {
     console.error("Quiz generation failed:", err.message);
-    res.status(500).json({
+    return res.status(500).json({
       error: "Failed to generate quiz",
       detail: err.message,
     });
   }
-});
-
-app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
-
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Quiz backend running on port ${PORT}`));
+}

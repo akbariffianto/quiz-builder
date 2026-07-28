@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 const SAMPLE_TOPICS = [
   "Top skills of a property agent in 2025",
   "Jakarta property market updates",
@@ -34,7 +36,7 @@ export default function App() {
     setStage("loading");
     setError("");
     try {
-      const res = await fetch("/api/generate-quiz", {
+      const res = await fetch(`${API_BASE}/api/generate-quiz`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, numQuestions, difficulty }),

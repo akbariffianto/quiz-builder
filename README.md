@@ -21,28 +21,48 @@ four sample topic chips on the setup screen, which are just shortcuts.
 ## Architecture
 
 ```
-frontend (React + Vite)  --POST /api/generate-quiz-->  backend (Express)  --Gemini API-->  Google AI
-        |                                                      |
-   quiz-taking UI                                    prompt construction +
-   scoring + review                                  JSON parsing/validation
+frontend (React + Vite, static build)  --POST /api/generate-quiz-->  api/generate-quiz.js (Vercel serverless function)  --Gemini API-->  Google AI
 ```
 
-The backend exists only to keep the Gemini API key server-side (never
-exposed to the browser) and to construct the prompt consistently. It does not
-use a database; each quiz is generated fresh and lives only in the frontend's
-React state for that session.
+In production this whole app is one Vercel project: the static frontend and the
+`/api/generate-quiz` serverless function deploy together, same domain, no CORS
+needed. The `backend/` folder (Express) is kept as a local-dev / reference
+implementation with the identical prompt logic, in case you want to run a
+persistent server instead (e.g. on your own VPS) rather than serverless.
+
+The Gemini API key never reaches the browser: it only exists as a Vercel
+environment variable read inside `api/generate-quiz.js`.
 
 ## Stack
 
 - **Frontend:** React 18 + Vite, plain CSS (no UI framework) so every visual
   choice is intentional rather than default Tailwind/shadcn styling.
-- **Backend:** Node.js + Express, `@google/generative-ai`.
-- **Model:** Gemini (`gemini-2.0-flash`) with `responseMimeType: "application/json"`
+- **Backend (production):** a single Vercel serverless function at
+  `api/generate-quiz.js`.
+- **Backend (local dev alternative):** Node.js + Express in `backend/`, same
+  prompt logic, useful if you want to run this on a regular server instead.
+- **Model:** Gemini (`gemini-flash-latest`, an alias Google auto-updates to
+  its current GA flash model, chosen so this doesn't break every time a
+  specific model version gets deprecated) with `responseMimeType: "application/json"`
   set in the generation config, plus an explicit "output only JSON" instruction
   in the prompt as a second line of defense. See `PROMPTS.md` for the exact
   system/user prompts and why they're written the way they are.
 
-## Running it locally
+## Deploying (Vercel, free, no credit card)
+
+1. Push this repo to GitHub.
+2. Go to [vercel.com](https://vercel.com), sign up with GitHub (no card
+   required for the free Hobby plan).
+3. **New Project** → import this repo. Vercel will read `vercel.json`
+   automatically for the build/output config.
+4. Under **Environment Variables**, add:
+   - `GEMINI_API_KEY` = your Gemini API key
+5. Deploy. You'll get one URL that serves both the quiz UI and the API
+   (e.g. `https://quiz-builder.vercel.app`) — no separate frontend/backend
+   deploys, no CORS setup needed.
+6. Test it by opening the URL and generating a quiz.
+
+## Running it locally (frontend + Express, for development)
 
 ```bash
 # 1. Backend
@@ -58,6 +78,11 @@ npm run dev               # runs on http://localhost:5173, proxies /api to :3001
 ```
 
 Open `http://localhost:5173`, type a topic, and generate a quiz.
+
+If you want to test the actual Vercel serverless function locally instead
+of the Express backend, install the Vercel CLI (`npm i -g vercel`) and run
+`vercel dev` from the repo root — it serves the built frontend and `/api`
+functions together on one local port, matching production exactly.
 
 ## What I'd change with more time
 
@@ -82,7 +107,10 @@ Open `http://localhost:5173`, type a topic, and generate a quiz.
 
 ## Files
 
-- `backend/server.js` — Express server + Gemini API call + prompt construction.
+- `api/generate-quiz.js` — Vercel serverless function that runs in production:
+  Gemini API call + prompt construction.
+- `backend/server.js` — Express equivalent for local dev / non-serverless
+  hosting, same prompt logic.
 - `frontend/src/App.jsx` — setup form, quiz-taking flow, results/review.
 - `frontend/src/App.css` — visual design (navy/blueprint theme with a gold
   accent, corner-bracket "drawing" cards, and a ruler-tick progress bar —
