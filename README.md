@@ -21,24 +21,29 @@ four sample topic chips on the setup screen, which are just shortcuts.
 ## Architecture
 
 ```
-frontend (React + Vite, static build)  --POST /api/generate-quiz-->  api/generate-quiz.js (Vercel serverless function)  --Gemini API-->  Google AI
+frontend/ (React + Vite, static build)  --POST /api/generate-quiz-->  frontend/api/generate-quiz.js (Vercel serverless function)  --Gemini API-->  Google AI
 ```
 
-In production this whole app is one Vercel project: the static frontend and the
-`/api/generate-quiz` serverless function deploy together, same domain, no CORS
-needed. The `backend/` folder (Express) is kept as a local-dev / reference
-implementation with the identical prompt logic, in case you want to run a
-persistent server instead (e.g. on your own VPS) rather than serverless.
+`api/generate-quiz.js` lives inside `frontend/` on purpose: when Vercel's Root
+Directory is set to `frontend`, it auto-detects this as a single Vite project
+with a colocated API route, rather than a multi-app monorepo. That avoids
+Vercel's "Services" auto-detection trying to deploy `backend/` as a second,
+separate application.
+
+The `backend/` folder (Express) is kept as a local-dev / reference
+implementation with the identical prompt logic, in case you want to run this
+on a persistent server instead (e.g. your own VPS) rather than serverless. It
+is not deployed to Vercel.
 
 The Gemini API key never reaches the browser: it only exists as a Vercel
-environment variable read inside `api/generate-quiz.js`.
+environment variable read inside `frontend/api/generate-quiz.js`.
 
 ## Stack
 
 - **Frontend:** React 18 + Vite, plain CSS (no UI framework) so every visual
   choice is intentional rather than default Tailwind/shadcn styling.
 - **Backend (production):** a single Vercel serverless function at
-  `api/generate-quiz.js`.
+  `frontend/api/generate-quiz.js`.
 - **Backend (local dev alternative):** Node.js + Express in `backend/`, same
   prompt logic, useful if you want to run this on a regular server instead.
 - **Model:** Gemini (`gemini-flash-latest`, an alias Google auto-updates to
@@ -53,14 +58,19 @@ environment variable read inside `api/generate-quiz.js`.
 1. Push this repo to GitHub.
 2. Go to [vercel.com](https://vercel.com), sign up with GitHub (no card
    required for the free Hobby plan).
-3. **New Project** → import this repo. Vercel will read `vercel.json`
-   automatically for the build/output config.
-4. Under **Environment Variables**, add:
+3. **New Project** → import this repo.
+4. On the import screen, set **Root Directory** to `frontend`. This is the
+   important step — it makes Vercel treat this as one Vite project with a
+   colocated `/api` route, instead of detecting `frontend` and `backend` as
+   two separate apps to deploy.
+5. Leave the Framework Preset as the auto-detected **Vite**, and leave Build
+   Command / Output Directory on their auto-detected defaults.
+6. Under **Environment Variables**, add:
    - `GEMINI_API_KEY` = your Gemini API key
-5. Deploy. You'll get one URL that serves both the quiz UI and the API
+7. Deploy. You'll get one URL that serves both the quiz UI and the API
    (e.g. `https://quiz-builder.vercel.app`) — no separate frontend/backend
    deploys, no CORS setup needed.
-6. Test it by opening the URL and generating a quiz.
+8. Test it by opening the URL and generating a quiz.
 
 ## Running it locally (frontend + Express, for development)
 
@@ -107,8 +117,8 @@ functions together on one local port, matching production exactly.
 
 ## Files
 
-- `api/generate-quiz.js` — Vercel serverless function that runs in production:
-  Gemini API call + prompt construction.
+- `frontend/api/generate-quiz.js` — Vercel serverless function that runs in
+  production: Gemini API call + prompt construction.
 - `backend/server.js` — Express equivalent for local dev / non-serverless
   hosting, same prompt logic.
 - `frontend/src/App.jsx` — setup form, quiz-taking flow, results/review.
